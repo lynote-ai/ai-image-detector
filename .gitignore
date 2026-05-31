@@ -7,5 +7,6 @@ dist/
 build/
 *.egg-info/
 .cache/
+ai-image-detector/
 .DS_Store
 report.csv

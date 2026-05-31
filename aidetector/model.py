@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Iterable, Protocol, Sequence
 
@@ -8,6 +9,7 @@ from PIL import Image, ImageOps
 from .config import (
     DEFAULT_BACKEND,
     DEFAULT_HF_MODEL_ID,
+    DEFAULT_HYBRID_UNIVFD_WEIGHT,
     DEFAULT_MODEL_NAME,
     DEFAULT_PRETRAINED,
     FC_WEIGHT_PATH_IN_REPO,
@@ -57,6 +59,28 @@ def _load_torch_checkpoint(torch_module, weight_path: str | Path):
         return torch_module.load(str(weight_path), map_location="cpu", weights_only=True)
     except TypeError:
         return torch_module.load(str(weight_path), map_location="cpu")
+
+
+def _build_detection_result(
+    *,
+    path: Path | None,
+    probability_ai: float,
+    raw_score: float,
+    threshold: float,
+    backend: str,
+) -> DetectionResult:
+    probability_real = 1.0 - probability_ai
+    label = "ai" if probability_ai >= threshold else "real"
+    confidence = probability_ai if label == "ai" else probability_real
+    return DetectionResult(
+        path=path,
+        label=label,
+        probability_ai=probability_ai,
+        probability_real=probability_real,
+        confidence=confidence,
+        raw_score=raw_score,
+        backend=backend,
+    )
 
 
 class AIImageDetector:
@@ -178,18 +202,12 @@ class AIImageDetector:
 
         results: list[DetectionResult] = []
         for probability_ai_tensor, logit_tensor, path in zip(probabilities, logits, paths, strict=True):
-            probability_ai = float(probability_ai_tensor.item())
-            probability_real = 1.0 - probability_ai
-            label = "ai" if probability_ai >= self.threshold else "real"
-            confidence = probability_ai if label == "ai" else probability_real
             results.append(
-                DetectionResult(
+                _build_detection_result(
                     path=path,
-                    label=label,
-                    probability_ai=probability_ai,
-                    probability_real=probability_real,
-                    confidence=confidence,
+                    probability_ai=float(probability_ai_tensor.item()),
                     raw_score=float(logit_tensor.item()),
+                    threshold=self.threshold,
                     backend=self.backend_name,
                 )
             )
@@ -246,10 +264,24 @@ class HuggingFaceImageDetector:
         self.device = torch.device(_select_device(torch, device))
         self.threshold = threshold
         self.model_id = model_id
-        self.processor = AutoImageProcessor.from_pretrained(model_id)
-        self.model = AutoModelForImageClassification.from_pretrained(model_id).to(self.device)
+        model_source = _resolve_local_hf_snapshot(model_id) or model_id
+        local_only = model_source != model_id
+        try:
+            self.model = AutoModelForImageClassification.from_pretrained(
+                model_source,
+                local_files_only=local_only,
+            ).to(self.device)
+        except Exception:
+            self.model = AutoModelForImageClassification.from_pretrained(model_id).to(self.device)
         self.model.eval()
         self.id2label = self.model.config.id2label
+        try:
+            self.processor = AutoImageProcessor.from_pretrained(
+                model_source,
+                local_files_only=local_only,
+            )
+        except Exception:  # noqa: BLE001
+            self.processor = _build_fallback_image_processor(self.model.config)
 
     def model_info(self) -> dict:
         return {
@@ -289,19 +321,12 @@ class HuggingFaceImageDetector:
 
         results: list[DetectionResult] = []
         for row, logit_row, path in zip(probabilities, logits, paths, strict=True):
-            probability_ai = float(row[fake_indices].sum().item())
-            probability_real = 1.0 - probability_ai
-            label = "ai" if probability_ai >= self.threshold else "real"
-            confidence = probability_ai if label == "ai" else probability_real
-            raw_score = float(logit_row[fake_indices].mean().item())
             results.append(
-                DetectionResult(
+                _build_detection_result(
                     path=path,
-                    label=label,
-                    probability_ai=probability_ai,
-                    probability_real=probability_real,
-                    confidence=confidence,
-                    raw_score=raw_score,
+                    probability_ai=float(row[fake_indices].sum().item()),
+                    raw_score=float(logit_row[fake_indices].mean().item()),
+                    threshold=self.threshold,
                     backend=self.backend_name,
                 )
             )
@@ -346,6 +371,116 @@ class HuggingFaceImageDetector:
         return fake_indices
 
 
+class HybridImageDetector:
+    """Blend UnivFD and HF image classifier scores for a stronger practical baseline."""
+
+    backend_name = "hybrid"
+
+    def __init__(
+        self,
+        *,
+        device: str | None = None,
+        threshold: float = 0.5,
+        univfd_weight: float = DEFAULT_HYBRID_UNIVFD_WEIGHT,
+        weight_path: str | Path | None = None,
+        model_name: str = DEFAULT_MODEL_NAME,
+        pretrained: str = DEFAULT_PRETRAINED,
+        hf_model: str = DEFAULT_HF_MODEL_ID,
+    ) -> None:
+        if not 0.0 <= univfd_weight <= 1.0:
+            raise ValueError("univfd_weight must be between 0 and 1")
+        self.threshold = threshold
+        self.univfd_weight = univfd_weight
+        self.univfd = AIImageDetector(
+            device=device,
+            threshold=threshold,
+            model_name=model_name,
+            pretrained=pretrained,
+            weight_path=weight_path,
+        )
+        self.hf = HuggingFaceImageDetector(
+            model_id=hf_model,
+            device=device,
+            threshold=threshold,
+        )
+
+    def model_info(self) -> dict:
+        return {
+            "backend": self.backend_name,
+            "threshold": self.threshold,
+            "univfd_weight": self.univfd_weight,
+            "hf_weight": round(1.0 - self.univfd_weight, 6),
+            "components": {
+                "univfd": self.univfd.model_info(),
+                "hf": self.hf.model_info(),
+            },
+        }
+
+    def predict_image(self, image: Image.Image, path: Path | None = None) -> DetectionResult:
+        return self.predict_images([image], paths=[path])[0]
+
+    def predict_images(
+        self,
+        images: Sequence[Image.Image],
+        paths: Sequence[Path | None] | None = None,
+    ) -> list[DetectionResult]:
+        if not images:
+            return []
+        if paths is None:
+            paths = [None] * len(images)
+        if len(paths) != len(images):
+            raise ValueError("paths must have the same length as images")
+
+        univfd_results = self.univfd.predict_images(images, paths=paths)
+        hf_results = self.hf.predict_images(images, paths=paths)
+        results: list[DetectionResult] = []
+        for univfd_result, hf_result, path in zip(univfd_results, hf_results, paths, strict=True):
+            probability_ai = (
+                self.univfd_weight * univfd_result.probability_ai
+                + (1.0 - self.univfd_weight) * hf_result.probability_ai
+            )
+            raw_score = (
+                self.univfd_weight * univfd_result.raw_score
+                + (1.0 - self.univfd_weight) * hf_result.raw_score
+            )
+            results.append(
+                _build_detection_result(
+                    path=path,
+                    probability_ai=probability_ai,
+                    raw_score=raw_score,
+                    threshold=self.threshold,
+                    backend=self.backend_name,
+                )
+            )
+        return results
+
+    def predict_path(self, path: str | Path) -> DetectionResult:
+        path = Path(path)
+        with Image.open(path) as image:
+            return self.predict_image(image, path=path)
+
+    def predict_many(
+        self,
+        paths: Iterable[str | Path],
+        batch_size: int = 16,
+    ) -> list[DetectionResult]:
+        results: list[DetectionResult] = []
+        batch_images: list[Image.Image] = []
+        batch_paths: list[Path] = []
+        for path_like in paths:
+            path = Path(path_like)
+            with Image.open(path) as image:
+                batch_images.append(_normalise_image(image))
+            batch_paths.append(path)
+            if len(batch_images) >= batch_size:
+                results.extend(self.predict_images(batch_images, paths=batch_paths))
+                batch_images = []
+                batch_paths = []
+        if batch_images:
+            results.extend(self.predict_images(batch_images, paths=batch_paths))
+        return results
+
+
 def create_detector(
     backend: str = DEFAULT_BACKEND,
     *,
@@ -355,6 +490,7 @@ def create_detector(
     model_name: str = DEFAULT_MODEL_NAME,
     pretrained: str = DEFAULT_PRETRAINED,
     hf_model: str = DEFAULT_HF_MODEL_ID,
+    hybrid_univfd_weight: float = DEFAULT_HYBRID_UNIVFD_WEIGHT,
 ) -> Detector:
     backend = backend.lower()
     if backend == "univfd":
@@ -367,7 +503,17 @@ def create_detector(
         )
     if backend in {"hf", "huggingface"}:
         return HuggingFaceImageDetector(model_id=hf_model, device=device, threshold=threshold)
-    raise ValueError(f"Unsupported backend: {backend!r}. Choose 'univfd' or 'hf'.")
+    if backend in {"hybrid", "ensemble"}:
+        return HybridImageDetector(
+            device=device,
+            threshold=threshold,
+            univfd_weight=hybrid_univfd_weight,
+            weight_path=weight_path,
+            model_name=model_name,
+            pretrained=pretrained,
+            hf_model=hf_model,
+        )
+    raise ValueError(f"Unsupported backend: {backend!r}. Choose 'univfd', 'hf', or 'hybrid'.")
 
 
 def iter_images(path: str | Path, recursive: bool = True) -> list[Path]:
@@ -378,3 +524,55 @@ def iter_images(path: str | Path, recursive: bool = True) -> list[Path]:
         return []
     globber = root.rglob if recursive else root.glob
     return sorted(p for p in globber("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS)
+
+
+def _build_fallback_image_processor(config):
+    try:
+        from transformers import ViTImageProcessor
+    except ImportError as exc:
+        raise RuntimeError("Missing dependency: install transformers to use the HF backend.") from exc
+
+    image_size = getattr(config, "image_size", 224)
+    if isinstance(image_size, int):
+        size = {"height": image_size, "width": image_size}
+    else:
+        size = image_size
+    image_mean = getattr(config, "image_mean", [0.5, 0.5, 0.5])
+    image_std = getattr(config, "image_std", [0.5, 0.5, 0.5])
+    return ViTImageProcessor(
+        do_resize=True,
+        size=size,
+        resample=3,
+        do_rescale=True,
+        rescale_factor=1 / 255,
+        do_normalize=True,
+        image_mean=image_mean,
+        image_std=image_std,
+    )
+
+
+def _resolve_local_hf_snapshot(model_id: str) -> str | None:
+    candidates = []
+    env_hf_home = os.environ.get("HF_HOME")
+    if env_hf_home:
+        candidates.append(Path(env_hf_home))
+    candidates.append(Path.home() / ".cache" / "huggingface")
+
+    for hf_home in candidates:
+        hub_dir = hf_home / "hub" / f"models--{model_id.replace('/', '--')}"
+        if not hub_dir.exists():
+            continue
+
+        ref_path = hub_dir / "refs" / "main"
+        if ref_path.exists():
+            revision = ref_path.read_text(encoding="utf-8").strip()
+            snapshot_dir = hub_dir / "snapshots" / revision
+            if snapshot_dir.exists():
+                return str(snapshot_dir)
+
+        snapshots_dir = hub_dir / "snapshots"
+        if snapshots_dir.exists():
+            for snapshot_dir in sorted(snapshots_dir.iterdir()):
+                if snapshot_dir.is_dir():
+                    return str(snapshot_dir)
+    return None

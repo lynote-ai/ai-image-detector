@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from .config import DEFAULT_BACKEND, DEFAULT_HF_MODEL_ID
+from .config import DEFAULT_BACKEND, DEFAULT_HF_MODEL_ID, DEFAULT_HYBRID_UNIVFD_WEIGHT
 from .model import create_detector
 
 
@@ -16,6 +16,7 @@ def create_app(
     backend: str = DEFAULT_BACKEND,
     weight_path: str | Path | None = None,
     hf_model: str = DEFAULT_HF_MODEL_ID,
+    hybrid_univfd_weight: float = DEFAULT_HYBRID_UNIVFD_WEIGHT,
 ):
     try:
         from fastapi import FastAPI, File, UploadFile
@@ -28,8 +29,9 @@ def create_app(
         threshold=threshold,
         weight_path=weight_path,
         hf_model=hf_model,
+        hybrid_univfd_weight=hybrid_univfd_weight,
     )
-    app = FastAPI(title="AI Image Detector", version="0.2.0")
+    app = FastAPI(title="AI Image Detector", version="0.3.0")
 
     @app.get("/health")
     def health() -> dict:

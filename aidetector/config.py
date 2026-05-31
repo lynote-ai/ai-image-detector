@@ -7,6 +7,7 @@ DEFAULT_MODEL_NAME = "ViT-L-14"
 DEFAULT_PRETRAINED = "openai"
 DEFAULT_BACKEND = "univfd"
 DEFAULT_HF_MODEL_ID = "capcheck/ai-image-detection"
+DEFAULT_HYBRID_UNIVFD_WEIGHT = 0.25
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
 
 

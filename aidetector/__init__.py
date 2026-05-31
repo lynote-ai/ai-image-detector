@@ -1,7 +1,7 @@
-from .model import AIImageDetector, HuggingFaceImageDetector, create_detector
+from .model import AIImageDetector, HuggingFaceImageDetector, HybridImageDetector, create_detector
 from .types import DetectionResult, EvaluationMetrics, EvaluationReport
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "AIImageDetector",
@@ -9,5 +9,6 @@ __all__ = [
     "EvaluationMetrics",
     "EvaluationReport",
     "HuggingFaceImageDetector",
+    "HybridImageDetector",
     "create_detector",
 ]

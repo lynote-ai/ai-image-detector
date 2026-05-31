@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import hashlib
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +20,16 @@ class ImageSample:
     label: int
     path: Path | None = None
     sample_id: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True)
+class PredictionRun:
+    y_true: list[int]
+    y_score: list[float]
+    y_pred: list[int]
+    predictions: list[dict[str, Any]]
+    seconds: float
 
 
 def parse_binary_label(value: Any, fake_label: str | int = "1") -> int:
@@ -131,6 +142,59 @@ def evaluate_hf_dataset(
     )
 
 
+def collect_tiny_genimage_parquet_samples(
+    parquet_paths: Sequence[str | Path],
+    *,
+    max_per_class_per_shard: int | None = None,
+    generators: set[str] | None = None,
+) -> list[ImageSample]:
+    try:
+        import pyarrow.parquet as pq
+    except ImportError as exc:
+        raise RuntimeError("Missing dependency: install pyarrow or datasets eval extras.") from exc
+
+    samples: list[ImageSample] = []
+    allowed_generators = {value.lower() for value in generators} if generators else None
+    for parquet_path_like in parquet_paths:
+        parquet_path = Path(parquet_path_like)
+        table = pq.read_table(parquet_path)
+        metadata = table.schema.metadata or {}
+        hf_metadata = metadata.get(b"huggingface")
+        label_names: list[str] | None = None
+        generator_names: list[str] | None = None
+        if hf_metadata:
+            payload = json.loads(hf_metadata.decode("utf-8"))
+            features = payload.get("info", {}).get("features", {})
+            label_names = features.get("label", {}).get("names")
+            generator_names = features.get("generator", {}).get("names")
+
+        rows = table.to_pylist()
+        per_class_counts = {0: 0, 1: 0}
+        for index, row in enumerate(rows):
+            label = int(row["label"])
+            generator_name = _class_name(int(row.get("generator", 0)), generator_names)
+            generator_key = generator_name.lower()
+            if allowed_generators and generator_key not in allowed_generators:
+                continue
+            if max_per_class_per_shard is not None and per_class_counts[label] >= max_per_class_per_shard:
+                continue
+            per_class_counts[label] += 1
+            samples.append(
+                ImageSample(
+                    image=_coerce_image(row["image"]),
+                    label=label,
+                    sample_id=f"{parquet_path.name}:{index}",
+                    metadata={
+                        "source_shard": parquet_path.name,
+                        "generator": generator_name,
+                        "generator_id": int(row.get("generator", 0)),
+                        "label_name": _class_name(label, label_names),
+                    },
+                )
+            )
+    return samples
+
+
 def iter_hf_samples(
     dataset_name: str,
     *,
@@ -178,59 +242,20 @@ def evaluate_samples(
     batch_size: int = 16,
     dataset_info: dict[str, Any] | None = None,
 ) -> EvaluationReport:
-    start = time.perf_counter()
-    y_true: list[int] = []
-    y_score: list[float] = []
-    y_pred: list[int] = []
-    predictions: list[dict[str, Any]] = []
-
-    batch_images: list[Image.Image] = []
-    batch_paths: list[Path | None] = []
-    batch_labels: list[int] = []
-    batch_ids: list[str | None] = []
-
-    def flush() -> None:
-        if not batch_images:
-            return
-        results = detector.predict_images(batch_images, paths=batch_paths)
-        for result, true_label, sample_id in zip(results, batch_labels, batch_ids, strict=True):
-            predicted = 1 if result.probability_ai >= detector.threshold else 0
-            y_true.append(true_label)
-            y_score.append(result.probability_ai)
-            y_pred.append(predicted)
-            row = result.as_dict()
-            row["truth"] = "ai" if true_label else "real"
-            row["sample_id"] = sample_id
-            predictions.append(row)
-        batch_images.clear()
-        batch_paths.clear()
-        batch_labels.clear()
-        batch_ids.clear()
-
-    for sample in samples:
-        image = _load_sample_image(sample)
-        batch_images.append(image)
-        batch_paths.append(sample.path)
-        batch_labels.append(int(sample.label))
-        batch_ids.append(sample.sample_id or (str(sample.path) if sample.path else None))
-        if len(batch_images) >= batch_size:
-            flush()
-    flush()
-
-    seconds = time.perf_counter() - start
+    run = collect_predictions(detector, samples, batch_size=batch_size)
     metrics = compute_metrics(
-        y_true,
-        y_score,
-        y_pred,
+        run.y_true,
+        run.y_score,
+        run.y_pred,
         dataset=dataset_name,
         threshold=detector.threshold,
-        seconds=seconds,
+        seconds=run.seconds,
     )
     return EvaluationReport(
         metrics=metrics,
         model=detector.model_info(),
         dataset=dataset_info or {"name": dataset_name},
-        predictions=predictions,
+        predictions=run.predictions,
     )
 
 
@@ -317,6 +342,91 @@ def roc_auc(y_true: Sequence[int], y_score: Sequence[float]) -> float | None:
     return (rank_sum_positive - positives * (positives + 1) / 2) / (positives * negatives)
 
 
+def collect_predictions(
+    detector: Detector,
+    samples: Iterable[ImageSample],
+    *,
+    batch_size: int = 16,
+) -> PredictionRun:
+    start = time.perf_counter()
+    y_true: list[int] = []
+    y_score: list[float] = []
+    y_pred: list[int] = []
+    predictions: list[dict[str, Any]] = []
+
+    batch_images: list[Image.Image] = []
+    batch_paths: list[Path | None] = []
+    batch_labels: list[int] = []
+    batch_ids: list[str | None] = []
+
+    def flush() -> None:
+        if not batch_images:
+            return
+        results = detector.predict_images(batch_images, paths=batch_paths)
+        for result, true_label, sample_id in zip(results, batch_labels, batch_ids, strict=True):
+            predicted = 1 if result.probability_ai >= detector.threshold else 0
+            y_true.append(true_label)
+            y_score.append(result.probability_ai)
+            y_pred.append(predicted)
+            row = result.as_dict()
+            row["truth"] = "ai" if true_label else "real"
+            row["sample_id"] = sample_id
+            metadata = _metadata_for_sample_id(sample_id)
+            if metadata is not None:
+                row.update(metadata)
+            predictions.append(row)
+        batch_images.clear()
+        batch_paths.clear()
+        batch_labels.clear()
+        batch_ids.clear()
+
+    for sample in samples:
+        image = _load_sample_image(sample)
+        batch_images.append(image)
+        batch_paths.append(sample.path)
+        batch_labels.append(int(sample.label))
+        batch_ids.append(sample.sample_id or (str(sample.path) if sample.path else None))
+        if sample.metadata is not None and batch_ids[-1] is not None:
+            _SAMPLE_METADATA[batch_ids[-1]] = dict(sample.metadata)
+        if len(batch_images) >= batch_size:
+            flush()
+    flush()
+
+    return PredictionRun(
+        y_true=y_true,
+        y_score=y_score,
+        y_pred=y_pred,
+        predictions=predictions,
+        seconds=time.perf_counter() - start,
+    )
+
+
+def split_samples_balanced(
+    samples: Sequence[ImageSample],
+    *,
+    calibration_fraction: float = 0.5,
+    seed: str = "aidetect",
+) -> tuple[list[ImageSample], list[ImageSample]]:
+    if not 0.0 < calibration_fraction < 1.0:
+        raise ValueError("calibration_fraction must be between 0 and 1")
+
+    groups = {0: [], 1: []}
+    for sample in samples:
+        groups[int(sample.label)].append(sample)
+
+    calibration: list[ImageSample] = []
+    test: list[ImageSample] = []
+    for label, group in groups.items():
+        if len(group) < 2:
+            raise ValueError(f"Need at least 2 samples for label {label} to split calibration/test.")
+        ranked = sorted(group, key=lambda sample: _stable_sample_key(sample, seed))
+        calibration_count = round(len(ranked) * calibration_fraction)
+        calibration_count = min(max(calibration_count, 1), len(ranked) - 1)
+        calibration.extend(ranked[:calibration_count])
+        test.extend(ranked[calibration_count:])
+    return calibration, test
+
+
 def best_threshold_metrics(y_true: Sequence[int], y_score: Sequence[float]) -> dict[str, float | None]:
     if not y_true:
         return {"threshold": None, "accuracy": None, "balanced_accuracy": None, "f1": None}
@@ -353,6 +463,156 @@ def best_threshold_metrics(y_true: Sequence[int], y_score: Sequence[float]) -> d
                 "f1": f1,
             }
     return best
+
+
+def search_threshold(
+    y_true: Sequence[int],
+    y_score: Sequence[float],
+) -> dict[str, float | None]:
+    return best_threshold_metrics(y_true, y_score)
+
+
+def search_hybrid_weight_threshold(
+    y_true: Sequence[int],
+    univfd_scores: Sequence[float],
+    hf_scores: Sequence[float],
+    *,
+    alpha_step: float = 0.05,
+) -> dict[str, float | None]:
+    if len(y_true) != len(univfd_scores) or len(y_true) != len(hf_scores):
+        raise ValueError("All sequences must have the same length")
+    if not 0.0 < alpha_step <= 1.0:
+        raise ValueError("alpha_step must be between 0 and 1")
+
+    best: dict[str, float | None] = {
+        "univfd_weight": None,
+        "threshold": None,
+        "accuracy": None,
+        "balanced_accuracy": -1.0,
+        "f1": None,
+    }
+    steps = round(1.0 / alpha_step)
+    for step in range(steps + 1):
+        alpha = min(step * alpha_step, 1.0)
+        combined_scores = [
+            alpha * univfd_score + (1.0 - alpha) * hf_score
+            for univfd_score, hf_score in zip(univfd_scores, hf_scores, strict=True)
+        ]
+        threshold_metrics = best_threshold_metrics(y_true, combined_scores)
+        candidate = (
+            float(threshold_metrics["balanced_accuracy"] or -1.0),
+            float(threshold_metrics["accuracy"] or -1.0),
+            float(threshold_metrics["f1"] or -1.0),
+        )
+        incumbent = (
+            float(best["balanced_accuracy"] or -1.0),
+            float(best["accuracy"] or -1.0),
+            float(best["f1"] or -1.0),
+        )
+        if candidate > incumbent:
+            best = {
+                "univfd_weight": alpha,
+                "threshold": threshold_metrics["threshold"],
+                "accuracy": threshold_metrics["accuracy"],
+                "balanced_accuracy": threshold_metrics["balanced_accuracy"],
+                "f1": threshold_metrics["f1"],
+            }
+    return best
+
+
+def combine_scores(
+    univfd_scores: Sequence[float],
+    hf_scores: Sequence[float],
+    *,
+    univfd_weight: float,
+) -> list[float]:
+    if len(univfd_scores) != len(hf_scores):
+        raise ValueError("univfd_scores and hf_scores must have the same length")
+    return [
+        univfd_weight * univfd_score + (1.0 - univfd_weight) * hf_score
+        for univfd_score, hf_score in zip(univfd_scores, hf_scores, strict=True)
+    ]
+
+
+def build_combined_predictions(
+    predictions: Sequence[dict[str, Any]],
+    scores: Sequence[float],
+    *,
+    threshold: float,
+    backend: str,
+) -> list[dict[str, Any]]:
+    if len(predictions) != len(scores):
+        raise ValueError("predictions and scores must have the same length")
+    combined: list[dict[str, Any]] = []
+    for row, score in zip(predictions, scores, strict=True):
+        updated = dict(row)
+        updated["probability_ai"] = round(score, 6)
+        updated["probability_real"] = round(1.0 - score, 6)
+        updated["label"] = "ai" if score >= threshold else "real"
+        updated["confidence"] = round(max(score, 1.0 - score), 6)
+        updated["backend"] = backend
+        combined.append(updated)
+    return combined
+
+
+def metrics_from_prediction_rows(
+    rows: Sequence[dict[str, Any]],
+    *,
+    threshold: float,
+    dataset: str,
+) -> dict[str, Any]:
+    y_true = [1 if row["truth"] == "ai" else 0 for row in rows]
+    y_score = [float(row["probability_ai"]) for row in rows]
+    metrics = compute_metrics(y_true, y_score, dataset=dataset, threshold=threshold, seconds=0.0)
+    payload = metrics.as_dict()
+    payload["images_per_second"] = None
+    payload["seconds"] = None
+    return payload
+
+
+def group_prediction_rows(
+    rows: Sequence[dict[str, Any]],
+    *,
+    field: str,
+    threshold: float,
+) -> dict[str, dict[str, Any]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        value = row.get(field)
+        if value is None:
+            continue
+        grouped.setdefault(str(value), []).append(row)
+    return {
+        key: metrics_from_prediction_rows(group_rows, threshold=threshold, dataset=f"{field}:{key}")
+        for key, group_rows in sorted(grouped.items())
+    }
+
+
+def group_prediction_rows_against_reference(
+    rows: Sequence[dict[str, Any]],
+    *,
+    field: str,
+    reference_value: str,
+    threshold: float,
+) -> dict[str, dict[str, Any]]:
+    reference_rows = [row for row in rows if str(row.get(field)) == reference_value]
+    if not reference_rows:
+        return {}
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        value = row.get(field)
+        if value is None or str(value) == reference_value:
+            continue
+        grouped.setdefault(str(value), []).append(row)
+    return {
+        key: metrics_from_prediction_rows(
+            [*reference_rows, *group_rows],
+            threshold=threshold,
+            dataset=f"{field}:{key}-vs-{reference_value}",
+        )
+        for key, group_rows in sorted(grouped.items())
+    }
 
 
 def write_report(report: EvaluationReport, output: str | Path) -> None:
@@ -398,3 +658,23 @@ def _label_key(value: Any) -> str:
 
 def _safe_div(numerator: float, denominator: float) -> float:
     return numerator / denominator if denominator else 0.0
+
+
+_SAMPLE_METADATA: dict[str, dict[str, Any]] = {}
+
+
+def _metadata_for_sample_id(sample_id: str | None) -> dict[str, Any] | None:
+    if sample_id is None:
+        return None
+    return _SAMPLE_METADATA.get(sample_id)
+
+
+def _stable_sample_key(sample: ImageSample, seed: str) -> str:
+    identity = sample.sample_id or (str(sample.path) if sample.path else repr(sample.image))
+    return hashlib.sha256(f"{seed}:{identity}".encode("utf-8")).hexdigest()
+
+
+def _class_name(index: int, names: list[str] | None) -> str:
+    if names is not None and 0 <= index < len(names):
+        return str(names[index])
+    return str(index)
