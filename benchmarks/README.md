@@ -38,9 +38,10 @@ reports were produced on CPU in the current workspace.
 Multi-shard calibrated hold-out results currently include 3 validation shards
 with up to 100 real + 100 fake samples exported per shard.
 
-| Report | Backend | Test N | Test Accuracy | Test Balanced Acc | Test F1 | Test ROC AUC |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `tiny-genimage-univfd-multishard-600.json` | UnivFD / CLIP ViT-L/14 | 300 | 0.690 | 0.690 | 0.617 | 0.784 |
+| Report | Backend | Test N | Test Accuracy | Test Balanced Acc | Precision | Recall | Test F1 | Test ROC AUC |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `tiny-genimage-hybrid-multishard-600.json` | Hybrid (UnivFD 0.85 + HF 0.15) | 300 | 0.743 | 0.743 | 0.745 | 0.740 | 0.742 | 0.816 |
+| `tiny-genimage-univfd-multishard-600.json` | UnivFD / CLIP ViT-L/14 | 300 | 0.690 | 0.690 | 0.806 | 0.500 | 0.617 | 0.784 |
 
 This report also includes:
 

@@ -208,27 +208,30 @@ Interpretation:
   split, and one local environment.
 - These calibrated runs were executed on CPU in this workspace.
 
-Current stronger multi-shard local benchmark, calibrated on 3 Tiny-GenImage
-validation shards with up to 100 real + 100 fake images sampled per shard:
+Current strongest local benchmark, calibrated on 3 Tiny-GenImage validation
+shards with up to 100 real + 100 fake images sampled per shard:
 
-| Backend | Test N | Test Accuracy | Test Balanced Acc | Test F1 | Test ROC AUC |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| UnivFD / CLIP ViT-L/14 | 300 | 0.690 | 0.690 | 0.617 | 0.784 |
+| Backend | Test N | Test Accuracy | Test Balanced Acc | Precision | Recall | Test F1 | Test ROC AUC |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Hybrid (UnivFD 0.85 + HF 0.15) | 300 | 0.743 | 0.743 | 0.745 | 0.740 | 0.742 | 0.816 |
+| UnivFD / CLIP ViT-L/14 | 300 | 0.690 | 0.690 | 0.806 | 0.500 | 0.617 | 0.784 |
 
 Selected generator-vs-real slices from that same held-out split:
 
 | Generator | N | Accuracy | Balanced Acc | F1 | ROC AUC |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| BigGAN vs Real | 172 | 0.884 | 0.895 | 0.667 | 0.984 |
-| ADM vs Real | 173 | 0.873 | 0.853 | 0.633 | 0.950 |
-| VQDM vs Real | 169 | 0.888 | 0.914 | 0.655 | 0.973 |
-| GLIDE vs Real | 172 | 0.820 | 0.645 | 0.367 | 0.723 |
-| Wukong vs Real | 169 | 0.811 | 0.572 | 0.238 | 0.740 |
-| Midjourney vs Real | 171 | 0.784 | 0.488 | 0.098 | 0.459 |
-| SD15 vs Real | 174 | 0.770 | 0.482 | 0.091 | 0.665 |
+| BigGAN vs Real | 172 | 0.773 | 0.851 | 0.519 | 0.945 |
+| ADM vs Real | 173 | 0.775 | 0.852 | 0.530 | 0.968 |
+| VQDM vs Real | 169 | 0.769 | 0.847 | 0.480 | 0.925 |
+| GLIDE vs Real | 172 | 0.738 | 0.714 | 0.400 | 0.760 |
+| SD15 vs Real | 174 | 0.736 | 0.707 | 0.410 | 0.752 |
+| Wukong vs Real | 169 | 0.728 | 0.663 | 0.324 | 0.736 |
+| Midjourney vs Real | 171 | 0.702 | 0.564 | 0.239 | 0.616 |
 
-This is the honest picture: UnivFD looks strong on some generators and weak on
-others. That is useful evidence, but it is not a universal detector guarantee.
+This is the honest picture: the hybrid model substantially improves the overall
+held-out balance between precision and recall, and it lifts weaker generators
+such as Midjourney and SD15 compared with pure UnivFD. It is still not a
+universal detector guarantee.
 
 ## Model Weights
 
