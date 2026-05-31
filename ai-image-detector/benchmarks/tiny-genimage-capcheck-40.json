@@ -1,0 +1,490 @@
+{
+  "metrics": {
+    "dataset": "folder:.cache/tiny-genimage-validation-40",
+    "n_samples": 40,
+    "n_real": 20,
+    "n_ai": 20,
+    "threshold": 0.5,
+    "accuracy": 0.6,
+    "balanced_accuracy": 0.6,
+    "precision": 0.5625,
+    "recall": 0.9,
+    "f1": 0.692308,
+    "roc_auc": 0.7425,
+    "confusion": {
+      "true_positive": 18,
+      "true_negative": 6,
+      "false_positive": 14,
+      "false_negative": 2
+    },
+    "seconds": 1.248639,
+    "images_per_second": 32.034874,
+    "threshold_sweep": {
+      "best_threshold": 0.581493,
+      "best_accuracy": 0.725,
+      "best_balanced_accuracy": 0.725,
+      "best_f1": 0.755556,
+      "note": "Diagnostic only: this threshold is selected on the evaluated sample."
+    }
+  },
+  "model": {
+    "backend": "hf",
+    "model_id": "capcheck/ai-image-detection",
+    "device": "mps",
+    "threshold": 0.5,
+    "id2label": {
+      "0": "REAL",
+      "1": "FAKE"
+    }
+  },
+  "dataset": {
+    "kind": "folder",
+    "root": ".cache/tiny-genimage-validation-40",
+    "real_dir": "real",
+    "fake_dir": "ai",
+    "recursive": true,
+    "max_per_class": null
+  },
+  "predictions": [
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000000-Real.jpg",
+      "label": "real",
+      "probability_ai": 0.450103,
+      "probability_real": 0.549897,
+      "confidence": 0.549897,
+      "raw_score": -0.053257,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000000-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000002-Real.jpg",
+      "label": "real",
+      "probability_ai": 0.411617,
+      "probability_real": 0.588383,
+      "confidence": 0.588383,
+      "raw_score": -0.189974,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000002-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000004-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.789245,
+      "probability_real": 0.210755,
+      "confidence": 0.789245,
+      "raw_score": 0.707384,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000004-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000006-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.925374,
+      "probability_real": 0.074626,
+      "confidence": 0.925374,
+      "raw_score": 1.391042,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000006-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000008-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.699066,
+      "probability_real": 0.300934,
+      "confidence": 0.699066,
+      "raw_score": 0.358293,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000008-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000010-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.506673,
+      "probability_real": 0.493327,
+      "confidence": 0.506673,
+      "raw_score": 0.05864,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000010-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000012-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.937996,
+      "probability_real": 0.062004,
+      "confidence": 0.937996,
+      "raw_score": 1.312069,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000012-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000014-Real.jpg",
+      "label": "real",
+      "probability_ai": 0.354862,
+      "probability_real": 0.645138,
+      "confidence": 0.645138,
+      "raw_score": -0.197122,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000014-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000016-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.564625,
+      "probability_real": 0.435375,
+      "confidence": 0.564625,
+      "raw_score": 0.248867,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000016-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000018-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.510171,
+      "probability_real": 0.489829,
+      "confidence": 0.510171,
+      "raw_score": 0.035539,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000018-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000020-Real.jpg",
+      "label": "real",
+      "probability_ai": 0.376422,
+      "probability_real": 0.623578,
+      "confidence": 0.623578,
+      "raw_score": -0.239241,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000020-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000022-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.915915,
+      "probability_real": 0.084085,
+      "confidence": 0.915915,
+      "raw_score": 1.300116,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000022-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000024-Real.jpg",
+      "label": "real",
+      "probability_ai": 0.441487,
+      "probability_real": 0.558513,
+      "confidence": 0.558513,
+      "raw_score": -0.108951,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000024-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000026-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.503748,
+      "probability_real": 0.496252,
+      "confidence": 0.503748,
+      "raw_score": 0.026543,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000026-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000028-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.976299,
+      "probability_real": 0.023701,
+      "confidence": 0.976299,
+      "raw_score": 1.890608,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000028-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000030-Real.jpg",
+      "label": "real",
+      "probability_ai": 0.444048,
+      "probability_real": 0.555952,
+      "confidence": 0.555952,
+      "raw_score": -0.038547,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000030-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000032-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.579401,
+      "probability_real": 0.420599,
+      "confidence": 0.579401,
+      "raw_score": 0.246519,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000032-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000034-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.932422,
+      "probability_real": 0.067578,
+      "confidence": 0.932422,
+      "raw_score": 1.390377,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000034-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000036-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.562955,
+      "probability_real": 0.437045,
+      "confidence": 0.562955,
+      "raw_score": 0.240056,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000036-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/real/000038-Real.jpg",
+      "label": "ai",
+      "probability_ai": 0.640831,
+      "probability_real": 0.359169,
+      "confidence": 0.640831,
+      "raw_score": 0.282193,
+      "backend": "hf",
+      "truth": "real",
+      "sample_id": ".cache/tiny-genimage-validation-40/real/000038-Real.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000001-ADM.jpg",
+      "label": "ai",
+      "probability_ai": 0.986351,
+      "probability_real": 0.013649,
+      "confidence": 0.986351,
+      "raw_score": 2.279647,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000001-ADM.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000003-BigGAN.jpg",
+      "label": "ai",
+      "probability_ai": 0.988668,
+      "probability_real": 0.011332,
+      "confidence": 0.988668,
+      "raw_score": 2.354894,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000003-BigGAN.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000005-GLIDE.jpg",
+      "label": "ai",
+      "probability_ai": 0.960522,
+      "probability_real": 0.039478,
+      "confidence": 0.960522,
+      "raw_score": 1.634861,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000005-GLIDE.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000007-Midjourney.jpg",
+      "label": "ai",
+      "probability_ai": 0.631054,
+      "probability_real": 0.368946,
+      "confidence": 0.631054,
+      "raw_score": 0.305495,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000007-Midjourney.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000009-SD15.jpg",
+      "label": "ai",
+      "probability_ai": 0.581493,
+      "probability_real": 0.418507,
+      "confidence": 0.581493,
+      "raw_score": 0.267463,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000009-SD15.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000011-VQDM.jpg",
+      "label": "ai",
+      "probability_ai": 0.995269,
+      "probability_real": 0.004731,
+      "confidence": 0.995269,
+      "raw_score": 2.680499,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000011-VQDM.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000013-Wukong.jpg",
+      "label": "ai",
+      "probability_ai": 0.951362,
+      "probability_real": 0.048638,
+      "confidence": 0.951362,
+      "raw_score": 1.427074,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000013-Wukong.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000015-ADM.jpg",
+      "label": "ai",
+      "probability_ai": 0.98569,
+      "probability_real": 0.01431,
+      "confidence": 0.98569,
+      "raw_score": 2.177871,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000015-ADM.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000017-BigGAN.jpg",
+      "label": "ai",
+      "probability_ai": 0.959325,
+      "probability_real": 0.040675,
+      "confidence": 0.959325,
+      "raw_score": 1.751724,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000017-BigGAN.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000019-GLIDE.jpg",
+      "label": "ai",
+      "probability_ai": 0.912656,
+      "probability_real": 0.087344,
+      "confidence": 0.912656,
+      "raw_score": 1.203629,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000019-GLIDE.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000021-Midjourney.jpg",
+      "label": "ai",
+      "probability_ai": 0.732239,
+      "probability_real": 0.267761,
+      "confidence": 0.732239,
+      "raw_score": 0.533798,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000021-Midjourney.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000023-SD15.jpg",
+      "label": "ai",
+      "probability_ai": 0.65327,
+      "probability_real": 0.34673,
+      "confidence": 0.65327,
+      "raw_score": 0.464612,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000023-SD15.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000025-VQDM.jpg",
+      "label": "ai",
+      "probability_ai": 0.594588,
+      "probability_real": 0.405412,
+      "confidence": 0.594588,
+      "raw_score": 0.29519,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000025-VQDM.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000027-Wukong.jpg",
+      "label": "ai",
+      "probability_ai": 0.990761,
+      "probability_real": 0.009239,
+      "confidence": 0.990761,
+      "raw_score": 2.255604,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000027-Wukong.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000029-ADM.jpg",
+      "label": "ai",
+      "probability_ai": 0.993823,
+      "probability_real": 0.006177,
+      "confidence": 0.993823,
+      "raw_score": 2.565847,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000029-ADM.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000031-BigGAN.jpg",
+      "label": "ai",
+      "probability_ai": 0.531936,
+      "probability_real": 0.468064,
+      "confidence": 0.531936,
+      "raw_score": 0.139827,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000031-BigGAN.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000033-GLIDE.jpg",
+      "label": "real",
+      "probability_ai": 0.338733,
+      "probability_real": 0.661267,
+      "confidence": 0.661267,
+      "raw_score": -0.378532,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000033-GLIDE.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000035-Midjourney.jpg",
+      "label": "ai",
+      "probability_ai": 0.705085,
+      "probability_real": 0.294915,
+      "confidence": 0.705085,
+      "raw_score": 0.438352,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000035-Midjourney.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000037-SD15.jpg",
+      "label": "ai",
+      "probability_ai": 0.973413,
+      "probability_real": 0.026587,
+      "confidence": 0.973413,
+      "raw_score": 1.724686,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000037-SD15.jpg"
+    },
+    {
+      "path": ".cache/tiny-genimage-validation-40/ai/000039-VQDM.jpg",
+      "label": "real",
+      "probability_ai": 0.219784,
+      "probability_real": 0.780216,
+      "confidence": 0.780216,
+      "raw_score": -0.598197,
+      "backend": "hf",
+      "truth": "ai",
+      "sample_id": ".cache/tiny-genimage-validation-40/ai/000039-VQDM.jpg"
+    }
+  ]
+}

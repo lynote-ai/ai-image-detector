@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ai-image-detector"
+version = "0.2.0"
+description = "A simple CLI, API, web UI, and benchmark runner for AI-generated image detection."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "AI Image Detector contributors" }]
+keywords = ["ai-image-detector", "deepfake", "aigc", "clip", "univfd", "synthetic-image-detection"]
+dependencies = [
+  "torch>=2.0",
+  "torchvision>=0.15",
+  "pillow>=10.0",
+  "typer>=0.12",
+  "rich>=13.7",
+  "open_clip_torch>=2.24",
+  "huggingface_hub>=0.23",
+  "socksio>=1.0",
+  "tqdm>=4.66"
+]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.111", "uvicorn[standard]>=0.30", "python-multipart>=0.0.9"]
+eval = ["datasets>=2.20"]
+hf = ["transformers>=4.41"]
+web = ["gradio>=4.31"]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+
+[project.scripts]
+aidetect = "aidetector.cli:app"
+
+[tool.ruff]
+line-length = 100
+
+[tool.hatch.build.targets.wheel]
+packages = ["aidetector"]
