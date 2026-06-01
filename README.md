@@ -18,6 +18,10 @@ This repo also ships a **hybrid** backend that blends UnivFD with a lightweight
 Hugging Face image classifier. It is useful when you want a stronger practical
 ensemble without training a new detector from scratch.
 
+The benchmark commands also support post-hoc threshold calibration objectives
+such as `balanced_accuracy` and `f1`. In practice, this has been one of the most
+effective low-risk levers for improving held-out performance.
+
 Recent research has moved further. **AIDE** combines CLIP semantics with low-level
 frequency/noise features and reports gains on GenImage and AIGCDetectBenchmark.
 That is a good research target for a future backend, but UnivFD is currently the
@@ -77,6 +81,10 @@ Use a Hugging Face image-classification model instead of UnivFD:
 ```bash
 aidetect detect image.jpg --backend hf --hf-model capcheck/ai-image-detection
 ```
+
+The generic `hf` backend expects a standard Transformers image-classification
+checkpoint. Some open-source detectors publish custom repos that need a dedicated
+adapter instead of `--backend hf`.
 
 Use the hybrid backend:
 
@@ -218,6 +226,11 @@ shards with up to 100 real + 100 fake images sampled per shard:
 | Hybrid (UnivFD 0.85 + HF 0.15), `optimize=f1` | 400 | 0.773 | 0.773 | 0.779 | 0.760 | 0.770 | 0.843 |
 | Hybrid (UnivFD 0.85 + HF 0.15), `optimize=balanced_accuracy` | 400 | 0.745 | 0.745 | 0.802 | 0.650 | 0.718 | 0.843 |
 | UnivFD / CLIP ViT-L/14 | 300 | 0.690 | 0.690 | 0.806 | 0.500 | 0.617 | 0.784 |
+
+The important takeaway is that `optimize=f1` gave the best thresholded
+performance on our held-out split. This lines up with recent calibration-focused
+research showing that post-hoc decision calibration can materially improve AIGI
+detectors without retraining.
 
 Selected generator-vs-real slices from that same held-out split:
 

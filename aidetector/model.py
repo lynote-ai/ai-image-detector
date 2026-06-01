@@ -272,7 +272,16 @@ class HuggingFaceImageDetector:
                 local_files_only=local_only,
             ).to(self.device)
         except Exception:
-            self.model = AutoModelForImageClassification.from_pretrained(model_id).to(self.device)
+            try:
+                self.model = AutoModelForImageClassification.from_pretrained(model_id).to(self.device)
+            except Exception as second_exc:
+                raise RuntimeError(
+                    "Could not load the requested Hugging Face model as a standard "
+                    "Transformers image-classification checkpoint. Some open-source "
+                    "detectors, such as custom Sentry or Nonescape releases, need a "
+                    "dedicated adapter instead of the generic --backend hf path. "
+                    f"Model: {model_id}. Last error: {second_exc}"
+                ) from second_exc
         self.model.eval()
         self.id2label = self.model.config.id2label
         try:
