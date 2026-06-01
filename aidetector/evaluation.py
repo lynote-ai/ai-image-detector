@@ -489,22 +489,22 @@ def search_threshold(
     return best
 
 
-def search_hybrid_weight_threshold(
+def search_blend_weight_threshold(
     y_true: Sequence[int],
-    univfd_scores: Sequence[float],
-    hf_scores: Sequence[float],
+    primary_scores: Sequence[float],
+    secondary_scores: Sequence[float],
     *,
     alpha_step: float = 0.05,
     objective: str = "balanced_accuracy",
     min_recall: float | None = None,
 ) -> dict[str, float | None]:
-    if len(y_true) != len(univfd_scores) or len(y_true) != len(hf_scores):
+    if len(y_true) != len(primary_scores) or len(y_true) != len(secondary_scores):
         raise ValueError("All sequences must have the same length")
     if not 0.0 < alpha_step <= 1.0:
         raise ValueError("alpha_step must be between 0 and 1")
 
     best: dict[str, float | None] = {
-        "univfd_weight": None,
+        "primary_weight": None,
         "threshold": None,
         "accuracy": None,
         "balanced_accuracy": -1.0,
@@ -514,8 +514,8 @@ def search_hybrid_weight_threshold(
     for step in range(steps + 1):
         alpha = min(step * alpha_step, 1.0)
         combined_scores = [
-            alpha * univfd_score + (1.0 - alpha) * hf_score
-            for univfd_score, hf_score in zip(univfd_scores, hf_scores, strict=True)
+            alpha * primary_score + (1.0 - alpha) * secondary_score
+            for primary_score, secondary_score in zip(primary_scores, secondary_scores, strict=True)
         ]
         threshold_metrics = search_threshold(
             y_true,
@@ -539,7 +539,7 @@ def search_hybrid_weight_threshold(
         ) if objective == "balanced_accuracy" and min_recall is None else best.get("_candidate", (-1.0, -1.0, -1.0, -1.0))
         if candidate > incumbent:
             best = {
-                "univfd_weight": alpha,
+                "primary_weight": alpha,
                 "threshold": threshold_metrics["threshold"],
                 "accuracy": threshold_metrics["accuracy"],
                 "balanced_accuracy": threshold_metrics["balanced_accuracy"],
@@ -550,6 +550,28 @@ def search_hybrid_weight_threshold(
             }
     best.pop("_candidate", None)
     return best
+
+
+def search_hybrid_weight_threshold(
+    y_true: Sequence[int],
+    univfd_scores: Sequence[float],
+    hf_scores: Sequence[float],
+    *,
+    alpha_step: float = 0.05,
+    objective: str = "balanced_accuracy",
+    min_recall: float | None = None,
+) -> dict[str, float | None]:
+    result = search_blend_weight_threshold(
+        y_true,
+        univfd_scores,
+        hf_scores,
+        alpha_step=alpha_step,
+        objective=objective,
+        min_recall=min_recall,
+    )
+    if result.get("primary_weight") is not None:
+        result["univfd_weight"] = result["primary_weight"]
+    return result
 
 
 def combine_scores(

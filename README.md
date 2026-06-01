@@ -14,9 +14,11 @@ because the task-specific weight is tiny, the code path is understandable, and t
 CVPR 2023 paper showed good cross-generator generalization compared with older
 GAN-trained detectors.
 
-This repo also ships a **hybrid** backend that blends UnivFD with a lightweight
-Hugging Face image classifier. It is useful when you want a stronger practical
-ensemble without training a new detector from scratch.
+This repo also ships **hybrid**, **nonescape-mini**, and **hybrid-plus**
+backends. `hybrid` blends UnivFD with a lightweight Hugging Face classifier,
+`nonescape-mini` adds a dedicated external open-source detector, and
+`hybrid-plus` ensembles both paths. This has been the strongest practical route
+so far without training a new model from scratch.
 
 The benchmark commands also support post-hoc threshold calibration objectives
 such as `balanced_accuracy` and `f1`. In practice, this has been one of the most
@@ -90,6 +92,18 @@ Use the hybrid backend:
 
 ```bash
 aidetect detect image.jpg --backend hybrid --hybrid-univfd-weight 0.8
+```
+
+Use the external Nonescape Mini adapter directly:
+
+```bash
+aidetect detect image.jpg --backend nonescape-mini
+```
+
+Use the strongest current ensemble:
+
+```bash
+aidetect detect image.jpg --backend hybrid-plus
 ```
 
 ## Python API
@@ -168,10 +182,10 @@ aidetect benchmark-tiny-genimage-local \
   /path/to/validation-00001-of-00004.parquet \
   /path/to/validation-00002-of-00004.parquet \
   /path/to/validation-00003-of-00004.parquet \
-  --backend hybrid \
+  --backend hybrid-plus \
   --optimize-metric f1 \
   --max-per-class-per-shard 100 \
-  --output benchmarks/tiny-genimage-hybrid-multishard-800-f1.json
+  --output benchmarks/tiny-genimage-hybrid-plus-800-f1.json
 ```
 
 If Hugging Face dataset metadata requests are flaky, you can work from a local
@@ -223,32 +237,33 @@ shards with up to 100 real + 100 fake images sampled per shard:
 
 | Backend | Test N | Test Accuracy | Test Balanced Acc | Precision | Recall | Test F1 | Test ROC AUC |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Hybrid-plus (`hybrid` + `nonescape-mini`), `optimize=f1` | 400 | 0.825 | 0.825 | 0.828 | 0.820 | 0.824 | 0.891 |
 | Hybrid (UnivFD 0.85 + HF 0.15), `optimize=f1` | 400 | 0.773 | 0.773 | 0.779 | 0.760 | 0.770 | 0.843 |
 | Hybrid (UnivFD 0.85 + HF 0.15), `optimize=balanced_accuracy` | 400 | 0.745 | 0.745 | 0.802 | 0.650 | 0.718 | 0.843 |
+| Nonescape Mini, `optimize=f1` | 400 | 0.772 | 0.772 | 0.772 | 0.775 | 0.773 | 0.810 |
 | UnivFD / CLIP ViT-L/14 | 300 | 0.690 | 0.690 | 0.806 | 0.500 | 0.617 | 0.784 |
 
-The important takeaway is that `optimize=f1` gave the best thresholded
-performance on our held-out split. This lines up with recent calibration-focused
-research showing that post-hoc decision calibration can materially improve AIGI
-detectors without retraining.
+The important takeaway is that external detector ensembling helped more than any
+single internal threshold tweak. `optimize=f1` still mattered, but the biggest
+jump came from combining our internal hybrid path with Nonescape Mini.
 
 Selected generator-vs-real slices from that same held-out split:
 
 | Generator | N | Accuracy | Balanced Acc | F1 | ROC AUC |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| BigGAN vs Real | 231 | 0.810 | 0.876 | 0.577 | 0.962 |
-| ADM vs Real | 232 | 0.810 | 0.877 | 0.585 | 0.974 |
-| VQDM vs Real | 224 | 0.804 | 0.872 | 0.511 | 0.941 |
-| GLIDE vs Real | 227 | 0.775 | 0.744 | 0.427 | 0.805 |
-| Wukong vs Real | 228 | 0.776 | 0.750 | 0.440 | 0.815 |
-| SD15 vs Real | 228 | 0.768 | 0.714 | 0.404 | 0.763 |
-| Midjourney vs Real | 230 | 0.730 | 0.576 | 0.262 | 0.638 |
+| BigGAN vs Real | 231 | 0.831 | 0.834 | 0.571 | 0.940 |
+| ADM vs Real | 232 | 0.815 | 0.774 | 0.517 | 0.847 |
+| GLIDE vs Real | 227 | 0.850 | 0.915 | 0.614 | 0.973 |
+| Midjourney vs Real | 230 | 0.843 | 0.882 | 0.609 | 0.960 |
+| SD15 vs Real | 228 | 0.842 | 0.879 | 0.591 | 0.938 |
+| Wukong vs Real | 228 | 0.838 | 0.861 | 0.575 | 0.924 |
+| VQDM vs Real | 224 | 0.781 | 0.603 | 0.269 | 0.618 |
 
-This is the honest picture: switching the calibration objective to `f1` gives us
-the strongest thresholded result so far, with a materially better precision /
-recall balance than pure UnivFD. It also lifts weaker generators such as
-Midjourney and SD15, though they remain much harder than ADM, BigGAN, or VQDM.
-This is still not a universal detector guarantee.
+This is the honest picture: the strongest gains came from combining a fast
+external detector with our internal stack, then calibrating the final decision
+for `f1`. That materially improves overall balance and lifts weak generators
+such as Midjourney and SD15, though performance is still generator-dependent and
+far from a universal guarantee.
 
 ## Model Weights
 

@@ -10,12 +10,14 @@ from .config import (
     DEFAULT_BACKEND,
     DEFAULT_HF_MODEL_ID,
     DEFAULT_HYBRID_UNIVFD_WEIGHT,
+    DEFAULT_HYBRID_PLUS_PRIMARY_WEIGHT,
     DEFAULT_MODEL_NAME,
     DEFAULT_PRETRAINED,
     FC_WEIGHT_PATH_IN_REPO,
     IMAGE_EXTENSIONS,
     MODEL_REPO_ID,
 )
+from .nonescape_adapter import NonescapeFullDetector, NonescapeMiniDetector
 from .types import DetectionResult
 
 
@@ -463,6 +465,92 @@ class HybridImageDetector:
             )
         return results
 
+
+class HybridPlusDetector:
+    """Blend the existing hybrid detector with Nonescape Mini for a stronger practical ensemble."""
+
+    backend_name = "hybrid-plus"
+
+    def __init__(
+        self,
+        *,
+        device: str | None = None,
+        threshold: float = 0.5,
+        primary_weight: float = DEFAULT_HYBRID_PLUS_PRIMARY_WEIGHT,
+        weight_path: str | Path | None = None,
+        model_name: str = DEFAULT_MODEL_NAME,
+        pretrained: str = DEFAULT_PRETRAINED,
+        hf_model: str = DEFAULT_HF_MODEL_ID,
+        hybrid_univfd_weight: float = DEFAULT_HYBRID_UNIVFD_WEIGHT,
+    ) -> None:
+        if not 0.0 <= primary_weight <= 1.0:
+            raise ValueError("primary_weight must be between 0 and 1")
+        self.threshold = threshold
+        self.primary_weight = primary_weight
+        self.primary = HybridImageDetector(
+            device=device,
+            threshold=threshold,
+            univfd_weight=hybrid_univfd_weight,
+            weight_path=weight_path,
+            model_name=model_name,
+            pretrained=pretrained,
+            hf_model=hf_model,
+        )
+        self.secondary = NonescapeMiniDetector(
+            threshold=threshold,
+            device=device,
+        )
+
+    def model_info(self) -> dict:
+        return {
+            "backend": self.backend_name,
+            "threshold": self.threshold,
+            "primary_weight": self.primary_weight,
+            "secondary_weight": round(1.0 - self.primary_weight, 6),
+            "components": {
+                "primary": self.primary.model_info(),
+                "secondary": self.secondary.model_info(),
+            },
+        }
+
+    def predict_image(self, image: Image.Image, path: Path | None = None) -> DetectionResult:
+        return self.predict_images([image], paths=[path])[0]
+
+    def predict_images(
+        self,
+        images: Sequence[Image.Image],
+        paths: Sequence[Path | None] | None = None,
+    ) -> list[DetectionResult]:
+        if not images:
+            return []
+        if paths is None:
+            paths = [None] * len(images)
+        if len(paths) != len(images):
+            raise ValueError("paths must have the same length as images")
+
+        primary_results = self.primary.predict_images(images, paths=paths)
+        secondary_results = self.secondary.predict_images(images, paths=paths)
+        results: list[DetectionResult] = []
+        for primary_result, secondary_result, path in zip(primary_results, secondary_results, paths, strict=True):
+            probability_ai = (
+                self.primary_weight * primary_result.probability_ai
+                + (1.0 - self.primary_weight) * secondary_result.probability_ai
+            )
+            raw_score = (
+                self.primary_weight * primary_result.raw_score
+                + (1.0 - self.primary_weight) * secondary_result.raw_score
+            )
+            results.append(
+                _build_detection_result(
+                    path=path,
+                    probability_ai=probability_ai,
+                    raw_score=raw_score,
+                    threshold=self.threshold,
+                    backend=self.backend_name,
+                )
+            )
+        return results
+
     def predict_path(self, path: str | Path) -> DetectionResult:
         path = Path(path)
         with Image.open(path) as image:
@@ -500,6 +588,7 @@ def create_detector(
     pretrained: str = DEFAULT_PRETRAINED,
     hf_model: str = DEFAULT_HF_MODEL_ID,
     hybrid_univfd_weight: float = DEFAULT_HYBRID_UNIVFD_WEIGHT,
+    hybrid_plus_primary_weight: float = DEFAULT_HYBRID_PLUS_PRIMARY_WEIGHT,
 ) -> Detector:
     backend = backend.lower()
     if backend == "univfd":
@@ -512,6 +601,18 @@ def create_detector(
         )
     if backend in {"hf", "huggingface"}:
         return HuggingFaceImageDetector(model_id=hf_model, device=device, threshold=threshold)
+    if backend in {"nonescape", "nonescape-full"}:
+        return NonescapeFullDetector(
+            threshold=threshold,
+            device=device,
+            weight_path=weight_path,
+        )
+    if backend in {"nonescape-mini", "nonescape_mini"}:
+        return NonescapeMiniDetector(
+            threshold=threshold,
+            device=device,
+            weight_path=weight_path,
+        )
     if backend in {"hybrid", "ensemble"}:
         return HybridImageDetector(
             device=device,
@@ -522,7 +623,21 @@ def create_detector(
             pretrained=pretrained,
             hf_model=hf_model,
         )
-    raise ValueError(f"Unsupported backend: {backend!r}. Choose 'univfd', 'hf', or 'hybrid'.")
+    if backend in {"hybrid-plus", "hybrid_plus", "stacked"}:
+        return HybridPlusDetector(
+            device=device,
+            threshold=threshold,
+            primary_weight=hybrid_plus_primary_weight,
+            weight_path=weight_path,
+            model_name=model_name,
+            pretrained=pretrained,
+            hf_model=hf_model,
+            hybrid_univfd_weight=hybrid_univfd_weight,
+        )
+    raise ValueError(
+        "Unsupported backend: "
+        f"{backend!r}. Choose 'univfd', 'hf', 'nonescape-mini', 'nonescape-full', 'hybrid', or 'hybrid-plus'."
+    )
 
 
 def iter_images(path: str | Path, recursive: bool = True) -> list[Path]:

@@ -40,8 +40,10 @@ with up to 100 real + 100 fake samples exported per shard.
 
 | Report | Backend | Test N | Test Accuracy | Test Balanced Acc | Precision | Recall | Test F1 | Test ROC AUC |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `tiny-genimage-hybrid-plus-800-f1.json` | Hybrid-plus (`hybrid` + `nonescape-mini`), `optimize=f1` | 400 | 0.825 | 0.825 | 0.828 | 0.820 | 0.824 | 0.891 |
 | `tiny-genimage-hybrid-multishard-800-f1.json` | Hybrid (UnivFD 0.85 + HF 0.15), `optimize=f1` | 400 | 0.773 | 0.773 | 0.779 | 0.760 | 0.770 | 0.843 |
 | `tiny-genimage-hybrid-multishard-800.json` | Hybrid (UnivFD 0.85 + HF 0.15), `optimize=balanced_accuracy` | 400 | 0.745 | 0.745 | 0.802 | 0.650 | 0.718 | 0.843 |
+| `tiny-genimage-nonescape-mini-800-f1.json` | Nonescape Mini, `optimize=f1` | 400 | 0.772 | 0.772 | 0.772 | 0.775 | 0.773 | 0.810 |
 | `tiny-genimage-univfd-multishard-600.json` | UnivFD / CLIP ViT-L/14 | 300 | 0.690 | 0.690 | 0.806 | 0.500 | 0.617 | 0.784 |
 
 This report also includes:

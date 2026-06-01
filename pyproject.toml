@@ -19,6 +19,7 @@ dependencies = [
   "rich>=13.7",
   "open_clip_torch>=2.24",
   "huggingface_hub>=0.23",
+  "safetensors>=0.4",
   "socksio>=1.0",
   "tqdm>=4.66"
 ]

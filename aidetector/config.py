@@ -8,6 +8,9 @@ DEFAULT_PRETRAINED = "openai"
 DEFAULT_BACKEND = "univfd"
 DEFAULT_HF_MODEL_ID = "capcheck/ai-image-detection"
 DEFAULT_HYBRID_UNIVFD_WEIGHT = 0.25
+DEFAULT_HYBRID_PLUS_PRIMARY_WEIGHT = 0.85
+NONESCAPE_MINI_URL = "https://nonescape.sfo2.cdn.digitaloceanspaces.com/nonescape-mini-v0.safetensors"
+NONESCAPE_FULL_URL = "https://nonescape.sfo2.cdn.digitaloceanspaces.com/nonescape-v0.safetensors"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
 
 
