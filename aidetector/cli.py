@@ -12,12 +12,13 @@ from rich.table import Table
 from tqdm import tqdm
 
 from .config import (
-    DEFAULT_BACKEND,
-    DEFAULT_HF_MODEL_ID,
-    DEFAULT_HYBRID_UNIVFD_WEIGHT,
-    DEFAULT_HYBRID_PLUS_PRIMARY_WEIGHT,
-    DEFAULT_MODEL_NAME,
-    DEFAULT_PRETRAINED,
+        DEFAULT_BACKEND,
+        DEFAULT_HF_MODEL_ID,
+        DEFAULT_HYBRID_UNIVFD_WEIGHT,
+        DEFAULT_HYBRID_PLUS_PRIMARY_WEIGHT,
+        DEFAULT_MODEL_NAME,
+        DEFAULT_ULTRA_PRIMARY_WEIGHT,
+        DEFAULT_PRETRAINED,
 )
 from .evaluation import (
     build_combined_predictions,
@@ -52,7 +53,7 @@ def detect(
     device: Optional[str] = typer.Option(None, help="cuda, mps, cpu, or auto when omitted."),
     backend: str = typer.Option(
         DEFAULT_BACKEND,
-        help="Detector backend: univfd, hf, nonescape-mini, nonescape-full, hybrid, or hybrid-plus.",
+        help="Detector backend: univfd, hf, nonescape-mini, nonescape-full, sentry-convnext-small, hybrid, hybrid-plus, or ultra.",
     ),
     weight_path: Optional[Path] = typer.Option(None, help="Optional local UnivFD fc_weights.pth path."),
     model_name: str = typer.Option(DEFAULT_MODEL_NAME, help="OpenCLIP model name for UnivFD."),
@@ -69,6 +70,12 @@ def detect(
         min=0.0,
         max=1.0,
         help="Blend weight for hybrid when --backend hybrid-plus.",
+    ),
+    ultra_primary_weight: float = typer.Option(
+        DEFAULT_ULTRA_PRIMARY_WEIGHT,
+        min=0.0,
+        max=1.0,
+        help="Blend weight for hybrid-plus when --backend ultra.",
     ),
     batch_size: int = typer.Option(16, min=1, help="Batch size for inference."),
     json_output: bool = typer.Option(False, "--json", help="Print JSON lines instead of a table."),
@@ -89,6 +96,7 @@ def detect(
         hf_model=hf_model,
         hybrid_univfd_weight=hybrid_univfd_weight,
         hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+        ultra_primary_weight=ultra_primary_weight,
     )
     results = _predict_paths(detector, paths, batch_size=batch_size, quiet=json_output)
 
@@ -116,7 +124,7 @@ def benchmark_folder_command(
     device: Optional[str] = typer.Option(None, help="cuda, mps, cpu, or auto when omitted."),
     backend: str = typer.Option(
         DEFAULT_BACKEND,
-        help="Detector backend: univfd, hf, nonescape-mini, nonescape-full, hybrid, or hybrid-plus.",
+        help="Detector backend: univfd, hf, nonescape-mini, nonescape-full, sentry-convnext-small, hybrid, hybrid-plus, or ultra.",
     ),
     weight_path: Optional[Path] = typer.Option(None, help="Optional local UnivFD fc_weights.pth path."),
     model_name: str = typer.Option(DEFAULT_MODEL_NAME, help="OpenCLIP model name for UnivFD."),
@@ -134,6 +142,12 @@ def benchmark_folder_command(
         max=1.0,
         help="Blend weight for hybrid when --backend hybrid-plus.",
     ),
+    ultra_primary_weight: float = typer.Option(
+        DEFAULT_ULTRA_PRIMARY_WEIGHT,
+        min=0.0,
+        max=1.0,
+        help="Blend weight for hybrid-plus when --backend ultra.",
+    ),
     batch_size: int = typer.Option(16, min=1, help="Batch size for inference."),
     output: Optional[Path] = typer.Option(None, "--output", "-o", help="Write JSON benchmark report."),
 ) -> None:
@@ -148,6 +162,7 @@ def benchmark_folder_command(
         hf_model=hf_model,
         hybrid_univfd_weight=hybrid_univfd_weight,
         hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+        ultra_primary_weight=ultra_primary_weight,
     )
     report = evaluate_folder(
         detector,
@@ -176,7 +191,7 @@ def benchmark_hf_command(
     device: Optional[str] = typer.Option(None, help="cuda, mps, cpu, or auto when omitted."),
     backend: str = typer.Option(
         DEFAULT_BACKEND,
-        help="Detector backend: univfd, hf, nonescape-mini, nonescape-full, hybrid, or hybrid-plus.",
+        help="Detector backend: univfd, hf, nonescape-mini, nonescape-full, sentry-convnext-small, hybrid, hybrid-plus, or ultra.",
     ),
     weight_path: Optional[Path] = typer.Option(None, help="Optional local UnivFD fc_weights.pth path."),
     model_name: str = typer.Option(DEFAULT_MODEL_NAME, help="OpenCLIP model name for UnivFD."),
@@ -194,6 +209,12 @@ def benchmark_hf_command(
         max=1.0,
         help="Blend weight for hybrid when --backend hybrid-plus.",
     ),
+    ultra_primary_weight: float = typer.Option(
+        DEFAULT_ULTRA_PRIMARY_WEIGHT,
+        min=0.0,
+        max=1.0,
+        help="Blend weight for hybrid-plus when --backend ultra.",
+    ),
     batch_size: int = typer.Option(16, min=1, help="Batch size for inference."),
     output: Optional[Path] = typer.Option(None, "--output", "-o", help="Write JSON benchmark report."),
 ) -> None:
@@ -208,6 +229,7 @@ def benchmark_hf_command(
         hf_model=hf_model,
         hybrid_univfd_weight=hybrid_univfd_weight,
         hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+        ultra_primary_weight=ultra_primary_weight,
     )
     report = evaluate_hf_dataset(
         detector,
@@ -243,7 +265,7 @@ def benchmark_calibrated_folder_command(
     device: Optional[str] = typer.Option(None, help="cuda, mps, cpu, or auto when omitted."),
     backend: str = typer.Option(
         "hybrid",
-        help="Backend to calibrate: univfd, hf, nonescape-mini, nonescape-full, hybrid, or hybrid-plus.",
+        help="Backend to calibrate: univfd, hf, nonescape-mini, nonescape-full, sentry-convnext-small, hybrid, hybrid-plus, or ultra.",
     ),
     weight_path: Optional[Path] = typer.Option(None, help="Optional local UnivFD fc_weights.pth path."),
     model_name: str = typer.Option(DEFAULT_MODEL_NAME, help="OpenCLIP model name for UnivFD."),
@@ -266,6 +288,12 @@ def benchmark_calibrated_folder_command(
         min=0.0,
         max=1.0,
         help="Initial blend weight for hybrid when backend=hybrid-plus.",
+    ),
+    ultra_primary_weight: float = typer.Option(
+        DEFAULT_ULTRA_PRIMARY_WEIGHT,
+        min=0.0,
+        max=1.0,
+        help="Initial blend weight for hybrid-plus when backend=ultra.",
     ),
     optimize_metric: str = typer.Option(
         "balanced_accuracy",
@@ -309,6 +337,7 @@ def benchmark_calibrated_folder_command(
         hf_model=hf_model,
         hybrid_univfd_weight=hybrid_univfd_weight,
         hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+        ultra_primary_weight=ultra_primary_weight,
         hybrid_alpha_step=hybrid_alpha_step,
         optimize_metric=optimize_metric,
         min_recall=min_recall,
@@ -356,7 +385,7 @@ def benchmark_tiny_genimage_local_command(
     device: Optional[str] = typer.Option(None, help="cuda, mps, cpu, or auto when omitted."),
     backend: str = typer.Option(
         "univfd",
-        help="Backend to calibrate: univfd, hf, nonescape-mini, nonescape-full, hybrid, or hybrid-plus.",
+        help="Backend to calibrate: univfd, hf, nonescape-mini, nonescape-full, sentry-convnext-small, hybrid, hybrid-plus, or ultra.",
     ),
     weight_path: Optional[Path] = typer.Option(None, help="Optional local UnivFD fc_weights.pth path."),
     model_name: str = typer.Option(DEFAULT_MODEL_NAME, help="OpenCLIP model name for UnivFD."),
@@ -379,6 +408,12 @@ def benchmark_tiny_genimage_local_command(
         min=0.0,
         max=1.0,
         help="Initial blend weight for hybrid when backend=hybrid-plus.",
+    ),
+    ultra_primary_weight: float = typer.Option(
+        DEFAULT_ULTRA_PRIMARY_WEIGHT,
+        min=0.0,
+        max=1.0,
+        help="Initial blend weight for hybrid-plus when backend=ultra.",
     ),
     optimize_metric: str = typer.Option(
         "balanced_accuracy",
@@ -424,6 +459,7 @@ def benchmark_tiny_genimage_local_command(
         hf_model=hf_model,
         hybrid_univfd_weight=hybrid_univfd_weight,
         hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+        ultra_primary_weight=ultra_primary_weight,
         hybrid_alpha_step=hybrid_alpha_step,
         optimize_metric=optimize_metric,
         min_recall=min_recall,
@@ -517,7 +553,7 @@ def serve(
     device: Optional[str] = typer.Option(None, help="cuda, mps, cpu, or auto when omitted."),
     backend: str = typer.Option(
         DEFAULT_BACKEND,
-        help="Detector backend: univfd, hf, nonescape-mini, nonescape-full, hybrid, or hybrid-plus.",
+        help="Detector backend: univfd, hf, nonescape-mini, nonescape-full, sentry-convnext-small, hybrid, hybrid-plus, or ultra.",
     ),
     weight_path: Optional[Path] = typer.Option(None, help="Optional local UnivFD fc_weights.pth path."),
     hf_model: str = typer.Option(DEFAULT_HF_MODEL_ID, help="Hugging Face model id for --backend hf."),
@@ -532,6 +568,12 @@ def serve(
         min=0.0,
         max=1.0,
         help="Blend weight for hybrid when --backend hybrid-plus.",
+    ),
+    ultra_primary_weight: float = typer.Option(
+        DEFAULT_ULTRA_PRIMARY_WEIGHT,
+        min=0.0,
+        max=1.0,
+        help="Blend weight for hybrid-plus when --backend ultra.",
     ),
 ) -> None:
     """Launch a local Gradio web UI."""
@@ -548,6 +590,7 @@ def serve(
         hf_model=hf_model,
         hybrid_univfd_weight=hybrid_univfd_weight,
         hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+        ultra_primary_weight=ultra_primary_weight,
     )
 
     def predict(image):
@@ -574,7 +617,7 @@ def api_command(
     device: Optional[str] = typer.Option(None, help="cuda, mps, cpu, or auto when omitted."),
     backend: str = typer.Option(
         DEFAULT_BACKEND,
-        help="Detector backend: univfd, hf, nonescape-mini, nonescape-full, hybrid, or hybrid-plus.",
+        help="Detector backend: univfd, hf, nonescape-mini, nonescape-full, sentry-convnext-small, hybrid, hybrid-plus, or ultra.",
     ),
     weight_path: Optional[Path] = typer.Option(None, help="Optional local UnivFD fc_weights.pth path."),
     hf_model: str = typer.Option(DEFAULT_HF_MODEL_ID, help="Hugging Face model id for --backend hf."),
@@ -589,6 +632,12 @@ def api_command(
         min=0.0,
         max=1.0,
         help="Blend weight for hybrid when --backend hybrid-plus.",
+    ),
+    ultra_primary_weight: float = typer.Option(
+        DEFAULT_ULTRA_PRIMARY_WEIGHT,
+        min=0.0,
+        max=1.0,
+        help="Blend weight for hybrid-plus when --backend ultra.",
     ),
 ) -> None:
     """Launch a FastAPI service."""
@@ -607,6 +656,7 @@ def api_command(
         hf_model=hf_model,
         hybrid_univfd_weight=hybrid_univfd_weight,
         hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+        ultra_primary_weight=ultra_primary_weight,
     )
     uvicorn.run(fastapi_app, host=host, port=port)
 
@@ -709,6 +759,7 @@ def _run_calibrated_folder_benchmark(
     hf_model: str,
     hybrid_univfd_weight: float,
     hybrid_plus_primary_weight: float,
+    ultra_primary_weight: float,
     hybrid_alpha_step: float,
     optimize_metric: str,
     min_recall: Optional[float],
@@ -717,7 +768,95 @@ def _run_calibrated_folder_benchmark(
     group_fields: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     backend = backend.lower()
-    if backend in {"hybrid-plus", "hybrid_plus", "stacked"}:
+    if backend in {"ultra", "hybrid-ultra", "sentry-plus"}:
+        primary_detector = create_detector(
+            "hybrid-plus",
+            device=device,
+            threshold=threshold,
+            weight_path=weight_path,
+            model_name=model_name,
+            pretrained=pretrained,
+            hf_model=hf_model,
+            hybrid_univfd_weight=hybrid_univfd_weight,
+            hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+            ultra_primary_weight=ultra_primary_weight,
+        )
+        secondary_detector = create_detector(
+            "sentry-convnext-small",
+            device=device,
+            threshold=threshold,
+            weight_path=weight_path,
+            model_name=model_name,
+            pretrained=pretrained,
+            hf_model=hf_model,
+            hybrid_univfd_weight=hybrid_univfd_weight,
+            hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+            ultra_primary_weight=ultra_primary_weight,
+        )
+        calibration_primary = collect_predictions(primary_detector, calibration_samples, batch_size=batch_size)
+        calibration_secondary = collect_predictions(secondary_detector, calibration_samples, batch_size=batch_size)
+        search = search_blend_weight_threshold(
+            calibration_primary.y_true,
+            calibration_primary.y_score,
+            calibration_secondary.y_score,
+            alpha_step=hybrid_alpha_step,
+            objective=optimize_metric,
+            min_recall=min_recall,
+        )
+        selected_weight = float(search["primary_weight"] or ultra_primary_weight)
+        selected_threshold = float(search["threshold"] or threshold)
+        calibration_scores = combine_scores(
+            calibration_primary.y_score,
+            calibration_secondary.y_score,
+            univfd_weight=selected_weight,
+        )
+        test_primary = collect_predictions(primary_detector, test_samples, batch_size=batch_size)
+        test_secondary = collect_predictions(secondary_detector, test_samples, batch_size=batch_size)
+        test_scores = combine_scores(
+            test_primary.y_score,
+            test_secondary.y_score,
+            univfd_weight=selected_weight,
+        )
+        calibration_metrics = compute_metrics(
+            calibration_primary.y_true,
+            calibration_scores,
+            dataset="calibration",
+            threshold=selected_threshold,
+            seconds=calibration_primary.seconds + calibration_secondary.seconds,
+        )
+        test_metrics = compute_metrics(
+            test_primary.y_true,
+            test_scores,
+            dataset="test",
+            threshold=selected_threshold,
+            seconds=test_primary.seconds + test_secondary.seconds,
+        )
+        calibration_predictions = build_combined_predictions(
+            calibration_primary.predictions,
+            calibration_scores,
+            threshold=selected_threshold,
+            backend="ultra",
+        )
+        test_predictions = build_combined_predictions(
+            test_primary.predictions,
+            test_scores,
+            threshold=selected_threshold,
+            backend="ultra",
+        )
+        model = {
+            "backend": "ultra",
+            "selected_threshold": selected_threshold,
+            "selected_primary_weight": selected_weight,
+            "search_alpha_step": hybrid_alpha_step,
+            "optimize_metric": optimize_metric,
+            "min_recall": min_recall,
+            "components": {
+                "primary": primary_detector.model_info(),
+                "secondary": secondary_detector.model_info(),
+            },
+        }
+        search_summary = search
+    elif backend in {"hybrid-plus", "hybrid_plus", "stacked"}:
         primary_detector = create_detector(
             "hybrid",
             device=device,
@@ -728,6 +867,7 @@ def _run_calibrated_folder_benchmark(
             hf_model=hf_model,
             hybrid_univfd_weight=hybrid_univfd_weight,
             hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+            ultra_primary_weight=ultra_primary_weight,
         )
         secondary_detector = create_detector(
             "nonescape-mini",
@@ -739,6 +879,7 @@ def _run_calibrated_folder_benchmark(
             hf_model=hf_model,
             hybrid_univfd_weight=hybrid_univfd_weight,
             hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+            ultra_primary_weight=ultra_primary_weight,
         )
         calibration_primary = collect_predictions(primary_detector, calibration_samples, batch_size=batch_size)
         calibration_secondary = collect_predictions(secondary_detector, calibration_samples, batch_size=batch_size)
@@ -813,6 +954,7 @@ def _run_calibrated_folder_benchmark(
             pretrained=pretrained,
             hf_model=hf_model,
             hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+            ultra_primary_weight=ultra_primary_weight,
         )
         hf_detector = create_detector(
             "hf",
@@ -823,6 +965,7 @@ def _run_calibrated_folder_benchmark(
             pretrained=pretrained,
             hf_model=hf_model,
             hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+            ultra_primary_weight=ultra_primary_weight,
         )
         calibration_univfd = collect_predictions(univfd_detector, calibration_samples, batch_size=batch_size)
         calibration_hf = collect_predictions(hf_detector, calibration_samples, batch_size=batch_size)
@@ -898,6 +1041,7 @@ def _run_calibrated_folder_benchmark(
             hf_model=hf_model,
             hybrid_univfd_weight=hybrid_univfd_weight,
             hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+            ultra_primary_weight=ultra_primary_weight,
         )
         calibration_run = collect_predictions(detector, calibration_samples, batch_size=batch_size)
         search = search_threshold(
@@ -1009,6 +1153,12 @@ def _print_calibrated_benchmark(report: dict[str, Any]) -> None:
             "Selected hybrid-plus setting: "
             f"threshold={model['selected_threshold']:.3f}, "
             f"hybrid_weight={model['selected_primary_weight']:.3f}"
+        )
+    if model.get("backend") == "ultra":
+        console.print(
+            "Selected ultra setting: "
+            f"threshold={model['selected_threshold']:.3f}, "
+            f"hybrid-plus_weight={model['selected_primary_weight']:.3f}"
         )
 
 

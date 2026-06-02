@@ -3,6 +3,7 @@ from __future__ import annotations
 from PIL import Image
 
 from aidetector.model import iter_images
+from aidetector.sentry_adapter import convert_sentry_convnext_state_dict
 from aidetector.types import DetectionResult, EvaluationMetrics
 
 
@@ -60,3 +61,19 @@ def test_evaluation_metrics_serializes_auc_none():
 
     assert metrics.as_dict()["roc_auc"] is None
     assert metrics.as_dict()["confusion"]["true_negative"] == 1
+
+
+def test_convert_sentry_convnext_state_dict_maps_keys():
+    converted = convert_sentry_convnext_state_dict(
+        {
+            "backbone.downsample_layers.0.0.weight": "a",
+            "backbone.stages.0.0.depthwise_conv.weight": "b",
+            "backbone.stages.0.0.pointwise_conv1.weight": "c",
+            "head.fc.weight": "d",
+        }
+    )
+
+    assert converted["stem.0.weight"] == "a"
+    assert converted["stages.0.blocks.0.conv_dw.weight"] == "b"
+    assert converted["stages.0.blocks.0.mlp.fc1.weight"] == "c"
+    assert converted["head.fc.weight"] == "d"

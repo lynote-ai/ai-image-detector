@@ -12,12 +12,14 @@ from .config import (
     DEFAULT_HYBRID_UNIVFD_WEIGHT,
     DEFAULT_HYBRID_PLUS_PRIMARY_WEIGHT,
     DEFAULT_MODEL_NAME,
+    DEFAULT_ULTRA_PRIMARY_WEIGHT,
     DEFAULT_PRETRAINED,
     FC_WEIGHT_PATH_IN_REPO,
     IMAGE_EXTENSIONS,
     MODEL_REPO_ID,
 )
 from .nonescape_adapter import NonescapeFullDetector, NonescapeMiniDetector
+from .sentry_adapter import SentryConvNeXtDetector
 from .types import DetectionResult
 
 
@@ -556,6 +558,99 @@ class HybridPlusDetector:
         with Image.open(path) as image:
             return self.predict_image(image, path=path)
 
+
+class UltraDetector:
+    """Blend HybridPlus and Sentry ConvNeXt into the strongest current practical ensemble."""
+
+    backend_name = "ultra"
+
+    def __init__(
+        self,
+        *,
+        device: str | None = None,
+        threshold: float = 0.5,
+        primary_weight: float = DEFAULT_ULTRA_PRIMARY_WEIGHT,
+        weight_path: str | Path | None = None,
+        model_name: str = DEFAULT_MODEL_NAME,
+        pretrained: str = DEFAULT_PRETRAINED,
+        hf_model: str = DEFAULT_HF_MODEL_ID,
+        hybrid_univfd_weight: float = DEFAULT_HYBRID_UNIVFD_WEIGHT,
+        hybrid_plus_primary_weight: float = DEFAULT_HYBRID_PLUS_PRIMARY_WEIGHT,
+    ) -> None:
+        if not 0.0 <= primary_weight <= 1.0:
+            raise ValueError("primary_weight must be between 0 and 1")
+        self.threshold = threshold
+        self.primary_weight = primary_weight
+        self.primary = HybridPlusDetector(
+            device=device,
+            threshold=threshold,
+            primary_weight=hybrid_plus_primary_weight,
+            weight_path=weight_path,
+            model_name=model_name,
+            pretrained=pretrained,
+            hf_model=hf_model,
+            hybrid_univfd_weight=hybrid_univfd_weight,
+        )
+        self.secondary = SentryConvNeXtDetector(
+            threshold=threshold,
+            device=device,
+        )
+
+    def model_info(self) -> dict:
+        return {
+            "backend": self.backend_name,
+            "threshold": self.threshold,
+            "primary_weight": self.primary_weight,
+            "secondary_weight": round(1.0 - self.primary_weight, 6),
+            "components": {
+                "primary": self.primary.model_info(),
+                "secondary": self.secondary.model_info(),
+            },
+        }
+
+    def predict_image(self, image: Image.Image, path: Path | None = None) -> DetectionResult:
+        return self.predict_images([image], paths=[path])[0]
+
+    def predict_images(
+        self,
+        images: Sequence[Image.Image],
+        paths: Sequence[Path | None] | None = None,
+    ) -> list[DetectionResult]:
+        if not images:
+            return []
+        if paths is None:
+            paths = [None] * len(images)
+        if len(paths) != len(images):
+            raise ValueError("paths must have the same length as images")
+
+        primary_results = self.primary.predict_images(images, paths=paths)
+        secondary_results = self.secondary.predict_images(images, paths=paths)
+        results: list[DetectionResult] = []
+        for primary_result, secondary_result, path in zip(primary_results, secondary_results, paths, strict=True):
+            probability_ai = (
+                self.primary_weight * primary_result.probability_ai
+                + (1.0 - self.primary_weight) * secondary_result.probability_ai
+            )
+            raw_score = (
+                self.primary_weight * primary_result.raw_score
+                + (1.0 - self.primary_weight) * secondary_result.raw_score
+            )
+            results.append(
+                _build_detection_result(
+                    path=path,
+                    probability_ai=probability_ai,
+                    raw_score=raw_score,
+                    threshold=self.threshold,
+                    backend=self.backend_name,
+                )
+            )
+        return results
+
+    def predict_path(self, path: str | Path) -> DetectionResult:
+        path = Path(path)
+        with Image.open(path) as image:
+            return self.predict_image(image, path=path)
+
     def predict_many(
         self,
         paths: Iterable[str | Path],
@@ -589,6 +684,7 @@ def create_detector(
     hf_model: str = DEFAULT_HF_MODEL_ID,
     hybrid_univfd_weight: float = DEFAULT_HYBRID_UNIVFD_WEIGHT,
     hybrid_plus_primary_weight: float = DEFAULT_HYBRID_PLUS_PRIMARY_WEIGHT,
+    ultra_primary_weight: float = DEFAULT_ULTRA_PRIMARY_WEIGHT,
 ) -> Detector:
     backend = backend.lower()
     if backend == "univfd":
@@ -609,6 +705,12 @@ def create_detector(
         )
     if backend in {"nonescape-mini", "nonescape_mini"}:
         return NonescapeMiniDetector(
+            threshold=threshold,
+            device=device,
+            weight_path=weight_path,
+        )
+    if backend in {"sentry", "sentry-convnext", "sentry-convnext-small"}:
+        return SentryConvNeXtDetector(
             threshold=threshold,
             device=device,
             weight_path=weight_path,
@@ -634,9 +736,21 @@ def create_detector(
             hf_model=hf_model,
             hybrid_univfd_weight=hybrid_univfd_weight,
         )
+    if backend in {"ultra", "hybrid-ultra", "sentry-plus"}:
+        return UltraDetector(
+            device=device,
+            threshold=threshold,
+            primary_weight=ultra_primary_weight,
+            weight_path=weight_path,
+            model_name=model_name,
+            pretrained=pretrained,
+            hf_model=hf_model,
+            hybrid_univfd_weight=hybrid_univfd_weight,
+            hybrid_plus_primary_weight=hybrid_plus_primary_weight,
+        )
     raise ValueError(
         "Unsupported backend: "
-        f"{backend!r}. Choose 'univfd', 'hf', 'nonescape-mini', 'nonescape-full', 'hybrid', or 'hybrid-plus'."
+        f"{backend!r}. Choose 'univfd', 'hf', 'nonescape-mini', 'nonescape-full', 'sentry-convnext-small', 'hybrid', 'hybrid-plus', or 'ultra'."
     )
 
 

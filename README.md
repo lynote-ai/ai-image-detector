@@ -14,11 +14,13 @@ because the task-specific weight is tiny, the code path is understandable, and t
 CVPR 2023 paper showed good cross-generator generalization compared with older
 GAN-trained detectors.
 
-This repo also ships **hybrid**, **nonescape-mini**, and **hybrid-plus**
-backends. `hybrid` blends UnivFD with a lightweight Hugging Face classifier,
-`nonescape-mini` adds a dedicated external open-source detector, and
-`hybrid-plus` ensembles both paths. This has been the strongest practical route
-so far without training a new model from scratch.
+This repo also ships **hybrid**, **nonescape-mini**, **sentry-convnext-small**,
+**hybrid-plus**, and **ultra** backends. `hybrid` blends UnivFD with a
+lightweight Hugging Face classifier, `nonescape-mini` and
+`sentry-convnext-small` adapt external open-source detectors, `hybrid-plus`
+ensembles our internal hybrid with Nonescape, and `ultra` adds Sentry on top.
+This has become the strongest practical route so far without training a new
+model from scratch.
 
 The benchmark commands also support post-hoc threshold calibration objectives
 such as `balanced_accuracy` and `f1`. In practice, this has been one of the most
@@ -103,7 +105,7 @@ aidetect detect image.jpg --backend nonescape-mini
 Use the strongest current ensemble:
 
 ```bash
-aidetect detect image.jpg --backend hybrid-plus
+aidetect detect image.jpg --backend ultra
 ```
 
 ## Python API
@@ -182,10 +184,10 @@ aidetect benchmark-tiny-genimage-local \
   /path/to/validation-00001-of-00004.parquet \
   /path/to/validation-00002-of-00004.parquet \
   /path/to/validation-00003-of-00004.parquet \
-  --backend hybrid-plus \
+  --backend ultra \
   --optimize-metric f1 \
   --max-per-class-per-shard 100 \
-  --output benchmarks/tiny-genimage-hybrid-plus-800-f1.json
+  --output benchmarks/tiny-genimage-ultra-800-f1.json
 ```
 
 If Hugging Face dataset metadata requests are flaky, you can work from a local
@@ -237,6 +239,8 @@ shards with up to 100 real + 100 fake images sampled per shard:
 
 | Backend | Test N | Test Accuracy | Test Balanced Acc | Precision | Recall | Test F1 | Test ROC AUC |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Ultra (`hybrid-plus` + `sentry-convnext-small`), `optimize=f1` | 400 | 0.858 | 0.858 | 0.878 | 0.830 | 0.853 | 0.916 |
+| Sentry ConvNeXt Small, `optimize=f1` | 400 | 0.835 | 0.835 | 0.842 | 0.825 | 0.833 | 0.911 |
 | Hybrid-plus (`hybrid` + `nonescape-mini`), `optimize=f1` | 400 | 0.825 | 0.825 | 0.828 | 0.820 | 0.824 | 0.891 |
 | Hybrid (UnivFD 0.85 + HF 0.15), `optimize=f1` | 400 | 0.773 | 0.773 | 0.779 | 0.760 | 0.770 | 0.843 |
 | Hybrid (UnivFD 0.85 + HF 0.15), `optimize=balanced_accuracy` | 400 | 0.745 | 0.745 | 0.802 | 0.650 | 0.718 | 0.843 |
@@ -245,7 +249,8 @@ shards with up to 100 real + 100 fake images sampled per shard:
 
 The important takeaway is that external detector ensembling helped more than any
 single internal threshold tweak. `optimize=f1` still mattered, but the biggest
-jump came from combining our internal hybrid path with Nonescape Mini.
+jump came from combining our internal hybrid path with two external open-source
+detectors, first Nonescape and then Sentry.
 
 Selected generator-vs-real slices from that same held-out split:
 
@@ -259,11 +264,11 @@ Selected generator-vs-real slices from that same held-out split:
 | Wukong vs Real | 228 | 0.838 | 0.861 | 0.575 | 0.924 |
 | VQDM vs Real | 224 | 0.781 | 0.603 | 0.269 | 0.618 |
 
-This is the honest picture: the strongest gains came from combining a fast
-external detector with our internal stack, then calibrating the final decision
-for `f1`. That materially improves overall balance and lifts weak generators
-such as Midjourney and SD15, though performance is still generator-dependent and
-far from a universal guarantee.
+This is the honest picture: the strongest gains came from combining fast
+external detectors with our internal stack, then calibrating the final decision
+for `f1`. That materially improves overall balance and lifts weak generators,
+though performance is still generator-dependent and far from a universal
+guarantee.
 
 ## Model Weights
 
