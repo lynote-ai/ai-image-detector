@@ -62,22 +62,44 @@ pip install -e '.[dev]'       # tests and linting
 
 ## CLI Usage
 
-Detect one image:
+### Quick Start
+
+Detect one image with the default backend:
 
 ```bash
 aidetect detect image.jpg
 ```
 
-Detect a folder recursively:
+Detect a folder recursively and save a CSV:
 
 ```bash
 aidetect detect ./images --csv report.csv
 ```
 
-JSON lines output:
+Print JSON lines for scripting:
 
 ```bash
 aidetect detect ./images --json
+```
+
+### Which Backend Should I Use?
+
+- `univfd`: simplest default, smallest moving parts, good baseline.
+- `sentry-convnext-small`: strong single external detector.
+- `ultra`: strongest current ensemble in this repo; best first choice when you want the highest practical accuracy.
+- `nonescape-mini`: useful extra signal and part of the stronger ensembles.
+- `hf`: generic Transformers image-classification path for standard Hugging Face checkpoints.
+
+If you only want one recommendation:
+
+```bash
+aidetect detect image.jpg --backend ultra
+```
+
+If you want a simpler but still strong single model:
+
+```bash
+aidetect detect image.jpg --backend sentry-convnext-small
 ```
 
 Use a Hugging Face image-classification model instead of UnivFD:
@@ -107,6 +129,13 @@ Use the strongest current ensemble:
 ```bash
 aidetect detect image.jpg --backend ultra
 ```
+
+### How To Read The Output
+
+- `probability_ai` is the model's estimated likelihood that the image is AI-generated.
+- `label` is the thresholded decision. By default, `probability_ai >= 0.5` becomes `ai`.
+- Treat borderline scores such as `0.45` to `0.55` as weak evidence, not proof.
+- If a decision matters, compare at least two backends, especially `sentry-convnext-small` and `ultra`.
 
 ## Python API
 
@@ -139,6 +168,94 @@ curl -F "file=@image.jpg" http://127.0.0.1:8000/detect
 ```
 
 ## Benchmarks
+
+### Small Local Smoke Test
+
+To make the tradeoffs concrete, we ran the models in this repo against three
+local images in `test_images/`:
+
+- `ai-generated.png`
+- `ai_retouched.png`
+- `human.jpeg`
+
+For this tiny smoke test, we treated the filenames as labels:
+
+- `ai-generated.png` -> AI
+- `ai_retouched.png` -> AI
+- `human.jpeg` -> human
+
+This is not a publishable benchmark. It is only a quick sanity check on a
+3-image sample, but it is still useful for understanding how each backend tends
+to behave on obviously generated images versus edited or ambiguous ones.
+
+Summary:
+
+| Backend | Accuracy On `test_images/` | Notes |
+| --- | ---: | --- |
+| UnivFD / CLIP ViT-L/14 | 0.333 | Missed both AI-tagged images |
+| HF (`capcheck/ai-image-detection`) | 0.667 | Correct on `ai_retouched.png`, false positive on `human.jpeg` |
+| Nonescape Mini | 0.667 | Correct on both AI-tagged images, false positive on `human.jpeg` |
+| Sentry ConvNeXt Small | 0.667 | Correct on `ai-generated.png` and `human.jpeg` |
+| Ultra (`hybrid-plus` + `sentry-convnext-small`) | 0.667 | Same decisions as Sentry on this 3-image set |
+
+Per-backend results:
+
+#### UnivFD / CLIP ViT-L/14
+
+| Image | `probability_ai` | Predicted | Expected |
+| --- | ---: | --- | --- |
+| `test_images/ai-generated.png` | 0.3098 | human | ai |
+| `test_images/ai_retouched.png` | 0.2832 | human | ai |
+| `test_images/human.jpeg` | 0.2801 | human | human |
+
+Accuracy on this sample: `1 / 3 = 0.333`.
+
+#### HF (`capcheck/ai-image-detection`)
+
+| Image | `probability_ai` | Predicted | Expected |
+| --- | ---: | --- | --- |
+| `test_images/ai-generated.png` | 0.4127 | human | ai |
+| `test_images/ai_retouched.png` | 0.8976 | ai | ai |
+| `test_images/human.jpeg` | 0.9918 | ai | human |
+
+Accuracy on this sample: `2 / 3 = 0.667`.
+
+#### Nonescape Mini
+
+| Image | `probability_ai` | Predicted | Expected |
+| --- | ---: | --- | --- |
+| `test_images/ai-generated.png` | 0.8784 | ai | ai |
+| `test_images/ai_retouched.png` | 0.5926 | ai | ai |
+| `test_images/human.jpeg` | 0.9729 | ai | human |
+
+Accuracy on this sample: `2 / 3 = 0.667`.
+
+#### Sentry ConvNeXt Small
+
+| Image | `probability_ai` | Predicted | Expected |
+| --- | ---: | --- | --- |
+| `test_images/ai-generated.png` | 0.5113 | ai | ai |
+| `test_images/ai_retouched.png` | 0.0046 | human | ai |
+| `test_images/human.jpeg` | 0.0000 | human | human |
+
+Accuracy on this sample: `2 / 3 = 0.667`.
+
+#### Ultra (`hybrid-plus` + `sentry-convnext-small`)
+
+| Image | `probability_ai` | Predicted | Expected |
+| --- | ---: | --- | --- |
+| `test_images/ai-generated.png` | 0.5011 | ai | ai |
+| `test_images/ai_retouched.png` | 0.1479 | human | ai |
+| `test_images/human.jpeg` | 0.1675 | human | human |
+
+Accuracy on this sample: `2 / 3 = 0.667`.
+
+What this tells us:
+
+- `ultra` is still the best default recommendation overall because it has the strongest larger-sample benchmark evidence in this repo.
+- On this tiny 3-image test, `sentry-convnext-small` and `ultra` behaved almost the same.
+- `ai_retouched.png` is the hard case in this sample. Multiple backends treated it more like a human-edited image than a fully synthetic one.
+- `human.jpeg` is a good reminder that some detectors can overfire on real images. Here, `hf` and `nonescape-mini` both produced false positives.
 
 Evaluate a GenImage-style folder where `nature/` contains real images and `ai/`
 contains generated images:
