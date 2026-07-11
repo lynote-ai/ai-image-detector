@@ -178,6 +178,14 @@ local images in `test_images/`:
 - `ai_retouched.png`
 - `human.jpeg`
 
+Test images:
+
+| Image | Preview |
+| --- | --- |
+| `test_images/ai-generated.png` | ![ai-generated sample](test_images/ai-generated.png) |
+| `test_images/ai_retouched.png` | ![ai-retouched sample](test_images/ai_retouched.png) |
+| `test_images/human.jpeg` | ![human sample](test_images/human.jpeg) |
+
 For this tiny smoke test, we treated the filenames as labels:
 
 - `ai-generated.png` -> AI
