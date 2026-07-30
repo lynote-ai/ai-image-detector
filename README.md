@@ -4,7 +4,10 @@ A small, friendly open-source detector for AI-generated images. It is designed i
 `yt-dlp` / `rembg` spirit: install it, run one command, get a probability and a
 reproducible report.
 
-> AI image detection is probabilistic. Treat the output as one signal, not as proof.
+> AI image detection is probabilistic. Treat the output as one signal, not as proof.</br>
+**Other Quality Projects**</br>
+AI Humanize Text:https://github.com/lynote-ai/humanize-text</br>
+AI Text Detector:https://github.com/lynote-ai/ai-text-detector</br>
 
 ## Model Choice
 
