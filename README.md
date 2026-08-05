@@ -1,5 +1,8 @@
 # AI Image Detector
 
+[![CI](https://github.com/lynote-ai/ai-image-detector/actions/workflows/ci.yml/badge.svg)](https://github.com/lynote-ai/ai-image-detector/actions/workflows/ci.yml)
+
+
 A small, friendly open-source detector for AI-generated images. It is designed in the
 `yt-dlp` / `rembg` spirit: install it, run one command, get a probability and a
 reproducible report.
